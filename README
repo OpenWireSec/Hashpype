@@ -1,4 +1,5 @@
-HashPype.py
+HashPype
+======
 
 HashPype is a script that utilizes Core Security Labs Impacket module and psexec script to perform large scale pass the hash attacks.
 
